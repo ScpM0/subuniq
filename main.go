@@ -33,7 +33,6 @@ func printBanner() {
 
 // printUsage prints the usage information
 func printUsage() {
-	// Re-structured the usage string using concatenation to avoid potential syntax interpretation issues
 	fmt.Println("Usage: subuniq -i input.txt -o output.txt " +
 		"[-ignore sub1,sub2] " +
 		"[-format plain|json|csv] " +
@@ -43,9 +42,6 @@ func printUsage() {
 
 // isValidSubdomain checks if a given string is a valid subdomain
 func isValidSubdomain(sub string) bool {
-	// Pattern for validating subdomains. It checks for at least one label,
-	// followed by a dot, and then a top-level domain of at least two letters.
-	// Allows alphanumeric characters and hyphens in labels.
 	pattern := `^(?:[a-zA-Z0-9_-]+\.)+[a-zA-Z]{2,}$`
 	re := regexp.MustCompile(pattern)
 	return re.MatchString(sub)
@@ -60,23 +56,19 @@ func main() {
 	filter := flag.String("filter", "", "Only include subdomains containing this substring")
 	validate := flag.Bool("valid", false, "Only include valid subdomains")
 
-	// Parse command-line arguments into the defined flags
 	flag.Parse()
 
-	// If no arguments are provided, print the banner and usage, then exit.
 	if len(os.Args) == 1 {
 		printBanner()
 		printUsage()
 		os.Exit(0)
 	}
 
-	// Ensure required flags are provided
 	if *inputPath == "" || *outputPath == "" {
-		printUsage() // Print usage if required arguments are missing
+		printUsage()
 		os.Exit(1)
 	}
 
-	// Process ignore list: split by comma, trim spaces, and convert to lowercase
 	ignoreList := []string{}
 	if *ignore != "" {
 		for _, v := range strings.Split(*ignore, ",") {
@@ -84,31 +76,27 @@ func main() {
 		}
 	}
 
-	// Open the input file
 	inputFile, err := os.Open(*inputPath)
 	if err != nil {
 		fmt.Printf("Error opening input file: %v\n", err)
 		os.Exit(1)
 	}
-	defer inputFile.Close() // Ensure the input file is closed when main exits
+	defer inputFile.Close()
 
-	// Initialize data structures for deduplication and concurrency control
-	scanner := bufio.NewScanner(inputFile) // Scanner to read file line by line
-	seen := make(map[string]bool)          // Map to store unique subdomains (case-insensitive)
-	mu := sync.Mutex{}                     // Mutex for concurrent map access (though not strictly needed for single-threaded scan)
-	totalLines := 0                        // Counter for total lines processed
-	progressStep := 1000                   // How often to print progress updates
+	scanner := bufio.NewScanner(inputFile)
+	seen := make(map[string]bool)
+	mu := sync.Mutex{}
+	totalLines := 0
+	progressStep := 1000
 
-	// Iterate through each line of the input file
 	for scanner.Scan() {
 		totalLines++
-		line := strings.TrimSpace(scanner.Text()) // Read and trim whitespace from the line
-		lower := strings.ToLower(line)            // Convert line to lowercase for case-insensitive processing
+		line := strings.TrimSpace(scanner.Text())
+		lower := strings.ToLower(line)
 		if lower == "" {
-			continue // Skip empty lines
+			continue
 		}
 
-		// Check if the subdomain should be ignored
 		ignored := false
 		for _, ign := range ignoreList {
 			if strings.Contains(lower, ign) {
@@ -117,54 +105,46 @@ func main() {
 			}
 		}
 		if ignored {
-			continue // Skip ignored subdomains
+			continue
 		}
 
-		// Check if the subdomain matches the filter
 		if *filter != "" && !strings.Contains(lower, *filter) {
-			continue // Skip subdomains that don't match the filter
+			continue
 		}
 
-		// Validate subdomain format if the -valid flag is set
 		if *validate && !isValidSubdomain(lower) {
-			continue // Skip invalid subdomains
+			continue
 		}
 
-		// Add subdomain to the 'seen' map if it's unique
-		mu.Lock()           // Lock to prevent race conditions when modifying map
+		mu.Lock()
 		if !seen[lower] {
 			seen[lower] = true
 		}
-		mu.Unlock()         // Unlock after map modification
+		mu.Unlock()
 
-		// Print progress update
 		if totalLines%progressStep == 0 {
 			fmt.Printf("Processed %d lines...\n", totalLines)
 		}
 	}
 
-	// Check for any errors during scanning the input file
 	if err := scanner.Err(); err != nil {
 		fmt.Printf("Error reading input file: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Extract unique subdomains from the map into a slice
 	uniqueSubs := make([]string, 0, len(seen))
 	for sub := range seen {
 		uniqueSubs = append(uniqueSubs, sub)
 	}
-	sort.Strings(uniqueSubs) // Sort the unique subdomains alphabetically
+	sort.Strings(uniqueSubs)
 
-	// Create the output file
 	outputFile, err := os.Create(*outputPath)
 	if err != nil {
 		fmt.Printf("Error creating output file: %v\n", err)
 		os.Exit(1)
 	}
-	defer outputFile.Close() // Ensure the output file is closed
+	defer outputFile.Close()
 
-	// Write unique subdomains to the output file based on the specified format
 	switch *format {
 	case "plain":
 		for _, line := range uniqueSubs {
@@ -172,7 +152,6 @@ func main() {
 		}
 	case "json":
 		jsonEncoder := json.NewEncoder(outputFile)
-		// Encode the slice of unique subdomains directly to JSON
 		err := jsonEncoder.Encode(uniqueSubs)
 		if err != nil {
 			fmt.Printf("Error encoding JSON: %v\n", err)
@@ -181,19 +160,18 @@ func main() {
 	case "csv":
 		writer := csv.NewWriter(outputFile)
 		for _, line := range uniqueSubs {
-			err := writer.Write([]string{line}) // Write each subdomain as a single-column row
+			err := writer.Write([]string{line})
 			if err != nil {
 				fmt.Printf("Error writing CSV: %v\n", err)
 				os.Exit(1)
 			}
 		}
-		writer.Flush() // Ensure all buffered CSV data is written to the file
+		writer.Flush()
 	default:
 		fmt.Println("Unsupported format. Use plain, json, or csv.")
 		os.Exit(1)
 	}
 
-	// Print final statistics
 	fmt.Println("\nDone! Unique subdomains saved.")
 	fmt.Printf("Total input lines: %d\n", totalLines)
 	fmt.Printf("Unique subdomains: %d\n", len(uniqueSubs))
@@ -207,4 +185,3 @@ func main() {
 		fmt.Println("Only valid subdomains included")
 	}
 }
-
