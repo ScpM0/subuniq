@@ -1,84 +1,58 @@
 package main
 
 import (
-    "bufio"
-    "flag"
-    "fmt"
-    "log"
-    "os"
-    "sort"
-    "strings"
+	"bufio"
+	"fmt"
+	"os"
+	"strings"
 )
 
+func printBanner() {
+	fmt.Println(`
+   _____         _      _    _         _        
+  / ____|       | |    | |  | |       (_)       
+ | (___   _   _ | |__  | |  | | _ __   _   __ _ 
+  \___ \ | | | || '_ \ | |  | || '_ \ | | / _' |
+  ____) || |_| || |_) || |__| || | | || || (_| |
+ |_____/  \__,_||_.__/  \____/ |_| |_||_| \__, |
+                                             | |
+                                             |_|                                          
+ SUBUNIQ - Subdomain Deduplication Tool by Mostafa
+`)
+}
+
 func main() {
-    inputFile := flag.String("i", "", "Input file path (required)")
-    outputFile := flag.String("o", "", "Output file path (required)")
-    flag.Parse()
+	printBanner()
 
-    if *inputFile == "" || *outputFile == "" {
-        fmt.Println("Usage: subuniq -i input.txt -o output.txt")
-        os.Exit(1)
-    }
+	if len(os.Args) != 3 {
+		fmt.Println("Usage: subuniq <input_file> <output_file>")
+		os.Exit(1)
+	}
 
-    subs, err := readLines(*inputFile)
-    if err != nil {
-        log.Fatalf("Error reading input file: %v", err)
-    }
+	inputFile, err := os.Open(os.Args[1])
+	if err != nil {
+		fmt.Printf("Error opening input file: %v\n", err)
+		os.Exit(1)
+	}
+	defer inputFile.Close()
 
-    uniqueSubs := uniqueStrings(subs)
+	outputFile, err := os.Create(os.Args[2])
+	if err != nil {
+		fmt.Printf("Error creating output file: %v\n", err)
+		os.Exit(1)
+	}
+	defer outputFile.Close()
 
-    sort.Strings(uniqueSubs)
+	scanner := bufio.NewScanner(inputFile)
+	seen := make(map[string]bool)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		lower := strings.ToLower(line)
+		if !seen[lower] && lower != "" {
+			seen[lower] = true
+			outputFile.WriteString(line + "\n")
+		}
+	}
 
-    err = writeLines(uniqueSubs, *outputFile)
-    if err != nil {
-        log.Fatalf("Error writing output file: %v", err)
-    }
-
-    fmt.Printf("SubUniq: Saved %d unique subdomains to '%s'.\n", len(uniqueSubs), *outputFile)
-}
-
-func readLines(path string) ([]string, error) {
-    file, err := os.Open(path)
-    if err != nil {
-        return nil, err
-    }
-    defer file.Close()
-
-    var lines []string
-    scanner := bufio.NewScanner(file)
-    for scanner.Scan() {
-        line := strings.TrimSpace(scanner.Text())
-        if line != "" {
-            lines = append(lines, strings.ToLower(line))
-        }
-    }
-    return lines, scanner.Err()
-}
-
-func writeLines(lines []string, path string) error {
-    file, err := os.Create(path)
-    if err != nil {
-        return err
-    }
-    defer file.Close()
-
-    for _, line := range lines {
-        _, err := file.WriteString(line + "\n")
-        if err != nil {
-            return err
-        }
-    }
-    return nil
-}
-
-func uniqueStrings(input []string) []string {
-    uniqueMap := make(map[string]bool)
-    for _, str := range input {
-        uniqueMap[str] = true
-    }
-    var result []string
-    for k := range uniqueMap {
-        result = append(result, k)
-    }
-    return result
+	fmt.Println("\n Done! Unique subdomains saved.")
 }
