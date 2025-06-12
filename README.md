@@ -10,6 +10,12 @@
 - Outputs sorted (alphabetically) unique subdomains.
 - Lightweight and fast thanks to Go.
 - Easy to use from the terminal.
+- Case-insensitive deduplication  
+- Ignores empty lines  
+- Clean and simple CLI interface  
+- Outputs results preserving original casing  
+- Handles large files efficiently (future enhancement)
+
 
 ---
 

@@ -7,12 +7,13 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
 )
 
-const version = "V1.2.0"
+const version = "V1.2.1"
 
 // printBanner prints the tool banner and version
 func printBanner() {
@@ -32,32 +33,36 @@ func printBanner() {
 
 // printUsage prints the usage information
 func printUsage() {
-	fmt.Println("Usage: subuniq -i input.txt -o output.txt [-ignore sub1,sub2] [-format plain|json|csv]")
+	fmt.Println("Usage: subuniq -i input.txt -o output.txt [-ignore sub1,sub2] [-format plain|json|csv] [-filter ".gov.eg"] [-valid]")
+}
+
+func isValidSubdomain(sub string) bool {
+	pattern := `^(?:[a-zA-Z0-9_-]+\.)+[a-zA-Z]{2,}$`
+	re := regexp.MustCompile(pattern)
+	return re.MatchString(sub)
 }
 
 func main() {
-	// Define flags
 	inputPath := flag.String("i", "", "Input file path (required)")
 	outputPath := flag.String("o", "", "Output file path (required)")
 	ignore := flag.String("ignore", "", "Comma separated substrings to ignore")
 	format := flag.String("format", "plain", "Output format: plain, json, csv")
+	filter := flag.String("filter", "", "Only include subdomains containing this substring")
+	validate := flag.Bool("valid", false, "Only include valid subdomains")
 
 	flag.Parse()
 
-	// If no flags provided, just print banner and usage and exit
 	if len(os.Args) == 1 {
 		printBanner()
 		printUsage()
 		os.Exit(0)
 	}
 
-	// If required flags are missing, print usage and exit
 	if *inputPath == "" || *outputPath == "" {
 		printUsage()
 		os.Exit(1)
 	}
 
-	// Prepare ignore list
 	ignoreList := []string{}
 	if *ignore != "" {
 		for _, v := range strings.Split(*ignore, ",") {
@@ -65,7 +70,6 @@ func main() {
 		}
 	}
 
-	// Open input file
 	inputFile, err := os.Open(*inputPath)
 	if err != nil {
 		fmt.Printf("Error opening input file: %v\n", err)
@@ -73,36 +77,20 @@ func main() {
 	}
 	defer inputFile.Close()
 
-	linesChan := make(chan string)
-
-	// Goroutine to read lines from input file
-	go func() {
-		scanner := bufio.NewScanner(inputFile)
-		for scanner.Scan() {
-			linesChan <- scanner.Text()
-		}
-		close(linesChan)
-
-		if err := scanner.Err(); err != nil {
-			fmt.Printf("Error reading input file: %v\n", err)
-			os.Exit(1)
-		}
-	}()
-
-	// Map to keep track of unique subdomains
+	scanner := bufio.NewScanner(inputFile)
 	seen := make(map[string]bool)
 	mu := sync.Mutex{}
-
 	totalLines := 0
-	for line := range linesChan {
+	progressStep := 1000
+
+	for scanner.Scan() {
 		totalLines++
-		line = strings.TrimSpace(line)
+		line := strings.TrimSpace(scanner.Text())
 		lower := strings.ToLower(line)
 		if lower == "" {
 			continue
 		}
 
-		// Check if line contains any ignored substrings
 		ignored := false
 		for _, ign := range ignoreList {
 			if strings.Contains(lower, ign) {
@@ -114,22 +102,36 @@ func main() {
 			continue
 		}
 
-		// Add unique subdomain
+		if *filter != "" && !strings.Contains(lower, *filter) {
+			continue
+		}
+
+		if *validate && !isValidSubdomain(lower) {
+			continue
+		}
+
 		mu.Lock()
 		if !seen[lower] {
 			seen[lower] = true
 		}
 		mu.Unlock()
+
+		if totalLines%progressStep == 0 {
+			fmt.Printf("Processed %d lines...\n", totalLines)
+		}
 	}
 
-	// Convert map keys to a slice and sort them
+	if err := scanner.Err(); err != nil {
+		fmt.Printf("Error reading input file: %v\n", err)
+		os.Exit(1)
+	}
+
 	uniqueSubs := make([]string, 0, len(seen))
 	for sub := range seen {
 		uniqueSubs = append(uniqueSubs, sub)
 	}
 	sort.Strings(uniqueSubs)
 
-	// Open output file
 	outputFile, err := os.Create(*outputPath)
 	if err != nil {
 		fmt.Printf("Error creating output file: %v\n", err)
@@ -137,7 +139,6 @@ func main() {
 	}
 	defer outputFile.Close()
 
-	// Write output in the requested format
 	switch *format {
 	case "plain":
 		for _, line := range uniqueSubs {
@@ -165,11 +166,16 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Print summary
 	fmt.Println("\nDone! Unique subdomains saved.")
 	fmt.Printf("Total input lines: %d\n", totalLines)
 	fmt.Printf("Unique subdomains: %d\n", len(uniqueSubs))
 	if len(ignoreList) > 0 {
 		fmt.Printf("Ignored substrings: %v\n", ignoreList)
+	}
+	if *filter != "" {
+		fmt.Printf("Filtered by: %s\n", *filter)
+	}
+	if *validate {
+		fmt.Println("Only valid subdomains included")
 	}
 }
