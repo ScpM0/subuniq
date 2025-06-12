@@ -33,7 +33,8 @@ func printBanner() {
 
 // printUsage prints the usage information
 func printUsage() {
-	fmt.Println("Usage: subuniq -i input.txt -o output.txt [-ignore sub1,sub2] [-format plain|json|csv] [-filter ".gov.eg"] [-valid]")
+	fmt.Println(`Usage: subuniq -i input.txt -o output.txt [-ignore sub1,sub2] [-format plain|json|csv] [-filter ".gov.eg"] [-valid]`)
+
 }
 
 func isValidSubdomain(sub string) bool {
