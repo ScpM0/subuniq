@@ -33,12 +33,19 @@ func printBanner() {
 
 // printUsage prints the usage information
 func printUsage() {
-
-	fmt.Println("Usage: subuniq -i input.txt -o output.txt [-ignore sub1,sub2] [-format plain|json|csv] [-filter \".gov.eg\"] [-valid]")
+	// Re-structured the usage string using concatenation to avoid potential syntax interpretation issues
+	fmt.Println("Usage: subuniq -i input.txt -o output.txt " +
+		"[-ignore sub1,sub2] " +
+		"[-format plain|json|csv] " +
+		"[-filter \".gov.eg\"] " +
+		"[-valid]")
 }
 
+// isValidSubdomain checks if a given string is a valid subdomain
 func isValidSubdomain(sub string) bool {
-	
+	// Pattern for validating subdomains. It checks for at least one label,
+	// followed by a dot, and then a top-level domain of at least two letters.
+	// Allows alphanumeric characters and hyphens in labels.
 	pattern := `^(?:[a-zA-Z0-9_-]+\.)+[a-zA-Z]{2,}$`
 	re := regexp.MustCompile(pattern)
 	return re.MatchString(sub)
