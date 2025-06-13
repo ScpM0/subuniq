@@ -23,8 +23,6 @@
 | `-o`      | Path to output file (required)                     |
 | `-ignore` | Comma-separated substrings to ignore in subdomains |
 | `-format` | Output format: `plain` (default), `json`, or `csv` |
-| `-filter` | Filter results by substring (e.g., `.gov.eg`)      |
-| `-valid`  | Include only valid subdomain formats               |
 | `-h`      | Show usage information                             |
 
 
