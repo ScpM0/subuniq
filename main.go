@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -18,15 +17,17 @@ const version = "V1.2.1"
 // printBanner prints the tool banner and version
 func printBanner() {
 	fmt.Println(`
-   
- _____       _                 _       
-/  ___|     | |               (_)      
-\ `--. _   _| |__  _   _ _ __  _  __ _ 
- `--. \ | | | '_ \| | | | '_ \| |/ _` |
-/\__/ / |_| | |_) | |_| | | | | | (_| |
-\____/ \__,_|_.__/ \__,_|_| |_|_|\__, |
-                                    | |
-                                    |_|
+
+
+   _____       _                 _       
+  / ____|     | |               (_)      
+ | (___  _   _| |__  _   _ _ __  _  __ _ 
+  \___ \| | | | '_ \| | | | '_ \| |/ _` |
+  ____) | |_| | |_) | |_| | | | | | (_| |
+ |_____/ \__,_|_.__/ \__,_|_| |_|_|\__, |
+                                      | |
+                                      |_|
+
 
  SUBUNIQ - Subdomain Deduplication Tool by Mostafa
   Version: ` + version + `
@@ -37,16 +38,7 @@ func printBanner() {
 func printUsage() {
 	fmt.Println("Usage: subuniq -i input.txt -o output.txt " +
 		"[-ignore sub1,sub2] " +
-		"[-format plain|json|csv] " +
-		"[-filter \".gov.eg\"] " +
-		"[-valid]")
-}
-
-// isValidSubdomain checks if a given string is a valid subdomain
-func isValidSubdomain(sub string) bool {
-	pattern := `^(?:[a-zA-Z0-9_-]+\.)+[a-zA-Z]{2,}$`
-	re := regexp.MustCompile(pattern)
-	return re.MatchString(sub)
+		"[-format plain|json|csv]")
 }
 
 func main() {
@@ -55,8 +47,6 @@ func main() {
 	outputPath := flag.String("o", "", "Output file path (required)")
 	ignore := flag.String("ignore", "", "Comma separated substrings to ignore")
 	format := flag.String("format", "plain", "Output format: plain, json, csv")
-	filter := flag.String("filter", "", "Only include subdomains containing this substring")
-	validate := flag.Bool("valid", false, "Only include valid subdomains")
 
 	flag.Parse()
 
@@ -107,14 +97,6 @@ func main() {
 			}
 		}
 		if ignored {
-			continue
-		}
-
-		if *filter != "" && !strings.Contains(lower, *filter) {
-			continue
-		}
-
-		if *validate && !isValidSubdomain(lower) {
 			continue
 		}
 
@@ -179,11 +161,5 @@ func main() {
 	fmt.Printf("Unique subdomains: %d\n", len(uniqueSubs))
 	if len(ignoreList) > 0 {
 		fmt.Printf("Ignored substrings: %v\n", ignoreList)
-	}
-	if *filter != "" {
-		fmt.Printf("Filtered by: %s\n", *filter)
-	}
-	if *validate {
-		fmt.Println("Only valid subdomains included")
 	}
 }
